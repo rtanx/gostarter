@@ -1,0 +1,84 @@
+version: "3"
+
+services:
+  api:
+    depends_on:
+      - maindb
+      - redis
+    build:
+      context: .
+      args:
+        ENV: DEV
+    environment:
+      - REGISTRY_NAME
+      - REPOSITORY_NAME
+      - IMAGE_TAG
+    image: ${REGISTRY_NAME:-gostarter}/${REPOSITORY_NAME:-gostarter-template}:${IMAGE_TAG:-latest}
+    container_name: api
+    hostname: api
+    volumes:
+      - ./:/app
+    networks:
+      - mainnet
+    ports:
+      - ${APP_PORT:-8080}:${APP_PORT:-8080}
+    deploy:
+      restart_policy:
+        condition: on-failure
+    restart: on-failure
+    # logging:
+    #   driver: awslogs
+    #   options:
+    #     awslogs-group: pandatech-internal-dashboard
+    #     awslogs-region: ap-southeast-1
+    #     awslogs-stream-prefix: api
+  maindb:
+    image: postgres:15-alpine
+    container_name: maindb
+    hostname: maindb
+    networks:
+      - mainnet
+    ports:
+      - ${DB_PORT:-5432}:${DB_PORT:-5432}
+    command: -p ${DB_PORT:-5432}
+    volumes:
+      - appvol:/var/lib/postgresql/data/pgdata
+    environment:
+      - POSTGRES_USER=${DB_USER:?database username (DB_USER) is required, should be defined in the environment file}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?database password (DB_PASSWORD) is required, should be defined in the environment file}
+      - POSTGRES_DB=${DB_NAME:?database name (DB_NAME) is required, should be defined in the environment file}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    # logging:
+    #   driver: awslogs
+    #   options:
+    #     awslogs-group:
+    #     awslogs-region: ap-southeast-1
+    #     awslogs-stream-prefix: maindb
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    hostname: redis
+    ports:
+      - ${REDIS_PORT:-6379}:${REDIS_PORT:-6379}
+    command: --port ${REDIS_PORT:-6379} --requirepass ${REDIS_PASSWORD}
+    deploy:
+      restart_policy:
+        condition: on-failure
+    restart: on-failure
+    volumes:
+      - appvol:/var/lib/redis/data/redisdata
+    networks:
+      - mainnet
+    # logging:
+    #   driver: awslogs
+    #   options:
+    #     awslogs-group:
+    #     awslogs-region: ap-southeast-1
+    #     awslogs-stream-prefix: redis
+
+volumes:
+  appvol:
+
+networks:
+  mainnet:
+    driver: bridge
